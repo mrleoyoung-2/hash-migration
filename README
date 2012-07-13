@@ -1,0 +1,6 @@
+== package
+mvn clean;
+mvn package assembly:assembly;
+
+== run
+java -jar target/PhotobankMigration-1.0-SNAPSHOT-jar-with-dependencies.jar photobank_db_dump 10
