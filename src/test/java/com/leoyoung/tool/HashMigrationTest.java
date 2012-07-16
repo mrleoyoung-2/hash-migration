@@ -46,12 +46,18 @@ public class HashMigrationTest {
 		Assert.assertEquals("photobank/374/067/000/cnjinchangcheng_9.jpg", MigrationUtils.getRelativePathInfo(line2));
 	}
 
+	/**
+	 * make real copy for all
+	 */
 	@Test
 	public void testMigrationFull() {
 		String[] args = new String[] { DUMP_FILE, "10" };
 		HashMigration.main(args);
 	}
 
+	/**
+	 * print to the console
+	 */
 	@Test
 	public void testMigrationTest() {
 		String[] args = new String[] { DUMP_FILE, "10", "-t" };

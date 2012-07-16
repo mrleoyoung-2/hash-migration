@@ -32,7 +32,7 @@ public class HashMigration {
 	private static final String NEW_REPO_PREFIX = MigrationSettings.getNewRepoAbsoluteDir();
 
 	public static void main(String[] args) {
-		mainLog.info("starting HashMigration job.");
+		mainLog.info("starting HashMigration copy job.");
 		// get the id/name pair
 		ParameterInfo parameterInfo = getParameterInfo(args);
 		mainLog.debug(parameterInfo);
@@ -103,7 +103,7 @@ public class HashMigration {
 				mainLog.error(e);
 			}
 		}
-		mainLog.info("HashMigration job done.");
+		mainLog.info("HashMigration job copy done.");
 	}
 
 	private static File[] needMigration(String line) {
