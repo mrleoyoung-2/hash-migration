@@ -11,4 +11,4 @@ or run junit test in eclipse
 
 ### run (using pub profile)
 	mvn package assembly:assembly -P pub;
-	java -jar HashMigration-1.0-jar-with-dependencies.jar db_dump_file 500
+	eg: java -jar HashMigration-1.0-jar-with-dependencies.jar db_dump_file 500
