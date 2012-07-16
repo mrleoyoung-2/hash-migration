@@ -1,4 +1,4 @@
-package alitool;
+package com.leoyoung.tool;
 
 public class Test {
 
@@ -7,6 +7,6 @@ public class Test {
 	 */
 	public static void main(String[] args) {
 		System.out.println("It works.");
-		PhotobankMigration.mainLog.debug("It works.");
+		HashMigration.mainLog.debug("It works.");
 	}
 }

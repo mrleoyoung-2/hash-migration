@@ -1,4 +1,4 @@
-package alitool;
+package com.leoyoung.tool;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -6,11 +6,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.channels.FileChannel;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -23,21 +21,24 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.log4j.Logger;
 
 /**
+ * a simple migration tool based on hash code of the relative path
+ * 
  * @author Leo Young Jul 10, 2012
  */
-public class PhotobankMigration {
+public class HashMigration {
 	public static final Logger mainLog = Logger.getLogger("mainLogger");
 	public static final Logger migrationLog = Logger.getLogger("migrationLogger");
-	private static String PREFIX_OLD = "/Users/leo/inc-workspace/PhotobankMigration/oldrepo/";// "/mnt/photobank_repository/";
-	private static String PREFIX_NEW = "/Users/leo/inc-workspace/PhotobankMigration/newrepo/"; // "/mnt/photobank_repository1/";
+	private static final String OLD_REPO_PREFIX = MigrationSettings.getOldRepoAbsoluteDir();
+	private static final String NEW_REPO_PREFIX = MigrationSettings.getNewRepoAbsoluteDir();
 
 	public static void main(String[] args) {
-		mainLog.info("starting PhotobankMigration job.");
+		mainLog.info("starting HashMigration job.");
 		// get the id/name pair
 		ParameterInfo parameterInfo = getParameterInfo(args);
 		mainLog.debug(parameterInfo);
 		if (parameterInfo == null) {
-			// TODO print usage
+			mainLog.error("Usage: java -jar HashMigration-1.0-jar-with-dependencies.jar [dump_file] [count] [-t]");
+			mainLog.error("Exampe: java -jar HashMigration-1.0-jar-with-dependencies.jar photobank_db_dump 500");
 			return;
 		}
 		final int size = parameterInfo.getCopyThreads();
@@ -84,10 +85,15 @@ public class PhotobankMigration {
 					}
 					File[] files = needMigration(line);
 					if (files != null) {
-						Future<?> future = copyExecutorService.submit(new CopyTask(files[0], files[1]));
+						Future<?> future = copyExecutorService.submit(CopyTaskFactory.getCopyTask(files[0], files[1],
+								parameterInfo));
 						futureExecutorService.execute(new CopyFutureTask(future, copyFinishedBlockingQueue));
 					} else {
 						queueSizeHolder++;
+					}
+					// make the test count equals the queueSizeHolder
+					if (parameterInfo.isTest() && (queueSizeHolder <= 0)) {
+						break;
 					}
 				}
 				copyExecutorService.shutdown();
@@ -97,7 +103,7 @@ public class PhotobankMigration {
 				mainLog.error(e);
 			}
 		}
-		PhotobankMigration.mainLog.info("PhotobankMigration job done.");
+		mainLog.info("HashMigration job done.");
 	}
 
 	private static File[] needMigration(String line) {
@@ -107,15 +113,13 @@ public class PhotobankMigration {
 			mainLog.debug("relativePath: " + relativePath + ", NOT migration.");
 			return null;
 		}
-		File oldFile = new File(PREFIX_OLD + relativePath);
-		File newFile = new File(PREFIX_NEW + relativePath);
-		synchronized (PhotobankMigration.mainLog) {
-			if (!oldFile.exists() || oldFile.isDirectory() || newFile.exists()) {
-				mainLog.warn("relativePath: " + relativePath + ", NEED migration, BUT: !oldFile.exists(): "
-						+ !oldFile.exists() + ", oldFile.isDirectory(): " + oldFile.isDirectory()
-						+ ", newFile.exists(): " + newFile.exists());
-				return null;
-			}
+		File oldFile = new File(OLD_REPO_PREFIX + relativePath);
+		File newFile = new File(NEW_REPO_PREFIX + relativePath);
+		if (!oldFile.exists() || oldFile.isDirectory() || newFile.exists()) {
+			mainLog.warn("relativePath: " + relativePath + ", NEED migration, BUT: !oldFile.exists(): "
+					+ !oldFile.exists() + ", oldFile.isDirectory(): " + oldFile.isDirectory() + ", newFile.exists(): "
+					+ newFile.exists());
+			return null;
 		}
 		mainLog.debug("need migration file: " + oldFile.getAbsolutePath());
 		return new File[] { oldFile, newFile };
@@ -130,6 +134,8 @@ public class PhotobankMigration {
 		for (String arg : args) {
 			if (NumberUtils.isNumber(arg)) {
 				parameterInfo.setCopyThreads(Integer.valueOf(arg));
+			} else if (StringUtils.equals(arg, "-t")) {
+				parameterInfo.setTest(true);
 			} else {
 				list.add(arg);
 			}
@@ -142,6 +148,15 @@ public class PhotobankMigration {
 class ParameterInfo {
 	private List<String> dumpFiles = new LinkedList<String>();
 	private int copyThreads;
+	private boolean isTest;
+
+	public boolean isTest() {
+		return isTest;
+	}
+
+	public void setTest(boolean isTest) {
+		this.isTest = isTest;
+	}
 
 	public List<String> getDumpFiles() {
 		return dumpFiles;
@@ -171,8 +186,8 @@ class ParameterInfo {
 }
 
 class CopyTask implements Runnable {
-	private File oldFile;
-	private File newFile;
+	protected File oldFile;
+	protected File newFile;
 
 	public CopyTask(File oldFile, File newFile) {
 		this.oldFile = oldFile;
@@ -181,20 +196,19 @@ class CopyTask implements Runnable {
 
 	@Override
 	public void run() {
-		PhotobankMigration.mainLog.debug("copy tast start running for: " + newFile.getAbsolutePath());
-		
-		synchronized (PhotobankMigration.mainLog) {
-			if (!newFile.getParentFile().exists()) {
-				newFile.getParentFile().mkdirs();
-			}
+		HashMigration.mainLog.debug("CopyTask start running for: " + newFile.getAbsolutePath());
+
+		if (!newFile.getParentFile().exists()) {
+			newFile.getParentFile().mkdirs();
 		}
+
 		FileChannel in = null, out = null;
 		try {
 			in = new FileInputStream(oldFile).getChannel();
 			out = new FileOutputStream(newFile).getChannel();
 			in.transferTo(0, in.size(), out);
 		} catch (Exception e) {
-			PhotobankMigration.mainLog.error(e);
+			HashMigration.mainLog.error(e);
 		} finally {
 			try {
 				if (out != null)
@@ -202,11 +216,24 @@ class CopyTask implements Runnable {
 				if (in != null)
 					in.close();
 			} catch (IOException e) {
-				PhotobankMigration.mainLog.error(e);
+				HashMigration.mainLog.error(e);
 			}
 		}
 		// log original file path to migration.log, for future delete
-		PhotobankMigration.migrationLog.info(oldFile.getAbsolutePath());
+		HashMigration.migrationLog.info(oldFile.getAbsolutePath());
+	}
+}
+
+class CopyTaskTest extends CopyTask {
+
+	public CopyTaskTest(File oldFile, File newFile) {
+		super(oldFile, newFile);
+	}
+
+	@Override
+	public void run() {
+		HashMigration.mainLog.info("CopyTaskTest start running for: oldFile(" + oldFile.getAbsolutePath()
+				+ "), newFile(" + newFile.getAbsolutePath() + ")");
 	}
 }
 
@@ -221,7 +248,7 @@ class CopyFutureTask implements Runnable {
 
 	@Override
 	public void run() {
-		PhotobankMigration.mainLog.debug("CopyFutureTask running.");
+		HashMigration.mainLog.debug("CopyFutureTask running.");
 		try {
 			future.get();
 			copyFinishedBlockingQueue.put(0);
@@ -233,93 +260,12 @@ class CopyFutureTask implements Runnable {
 	}
 }
 
-class MigrationUtils {
-
-	static boolean isHashNeedMigration(String relativePath) {
-		int hashCode = HashUtils.jkHash(relativePath);
-		int m = hashCode % 1024;
-		if (m > 511) {
-			return true;
-		}
-		return false;
-	}
-
-	/**
-	 * 101584057|1227694640551jpg.jpg
-	 * 
-	 * @param line
-	 *            one line of dump file
-	 * @return file path without first slash, if illegal,return null
-	 */
-	static String getRelativePathInfo(String line) {
-		if (line == null)
-			return null;
-		String[] pair = StringUtils.split(line, '|');
-		if (pair.length != 2)
-			return null;
-		String id = pair[0];
-		String name = pair[1];
-		if (StringUtils.isBlank(id) || StringUtils.isBlank(name)) {
-			return null;
-		}
-		StringBuilder idStringBuilder = new StringBuilder();
-		int idPrefixZeroCount = 9 - id.length();
-		for (int i = 0; i < idPrefixZeroCount; i++) {
-			idStringBuilder.append("0");
-		}
-		idStringBuilder.append(id);
-		String idString = idStringBuilder.toString();
-		String idOne = StringUtils.substring(idString, 0, 3);
-		String idTwo = StringUtils.substring(idString, 3, 6);
-		String idThree = StringUtils.substring(idString, 6, 9);
-		return new StringBuilder("photobank/").append(idThree).append(File.separator).append(idTwo)
-				.append(File.separator).append(idOne).append(File.separator).append(name).toString();
-	}
-}
-
-/**
- * copy from aranda
- * 
- * @author Leo Young Jul 11, 2012
- */
-class HashUtils {
-
-	public static String path2hashFileName(String path) {
-		if (path == null) {
-			return "" + jkHash(UUID.randomUUID().toString());
+class CopyTaskFactory {
+	public static CopyTask getCopyTask(File oldFile, File newFile, ParameterInfo parameterInfo) {
+		if (parameterInfo.isTest()) {
+			return new CopyTaskTest(oldFile, newFile);
 		} else {
-			return "" + jkHash(path);
-		}
-	}
-
-	/**
-	 * Jenkins One At A Time Hash algorithm
-	 * <p/>
-	 * See <a href="http://www.burtleburtle.net/bob/hash/doobs.html">this article</a> by Bob Jenkins for more details.
-	 * 
-	 * @param key
-	 * @return
-	 */
-	public static int jkHash(byte[] key) {
-		int key_len = key.length;
-		int hashValue = 0;
-		int i;
-		for (i = 0; i < key_len; i++) {
-			hashValue += key[i];
-			hashValue += (hashValue << 10);
-			hashValue ^= (hashValue >> 6);
-		}
-		hashValue += (hashValue << 3);
-		hashValue ^= (hashValue >> 11);
-		hashValue += (hashValue << 15);
-		return hashValue < 0 ? -hashValue : hashValue;
-	}
-
-	public static int jkHash(String input) {
-		try {
-			return jkHash(input.getBytes("UTF-8"));
-		} catch (UnsupportedEncodingException e) {
-			throw new RuntimeException(e);
+			return new CopyTask(oldFile, newFile);
 		}
 	}
 }

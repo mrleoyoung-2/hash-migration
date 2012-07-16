@@ -2,18 +2,37 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>alitool</groupId>
-	<artifactId>PhotobankMigration</artifactId>
-	<version>1.0-SNAPSHOT</version>
+	<groupId>com.leoyoung.tool</groupId>
+	<artifactId>HashMigration</artifactId>
+	<version>1.0</version>
 	<packaging>jar</packaging>
 
-	<name>PhotobankMigration</name>
+	<name>HashMigration</name>
 	<url>http://maven.apache.org</url>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
 
+	<profiles>
+		<profile>
+			<id>dev</id>
+			<activation>
+				<os>
+					<family>mac</family> <!-- default -->
+				</os>
+			</activation>
+			<properties>
+				<properties.file>dev.properties</properties.file>
+			</properties>
+		</profile>
+		<profile>
+			<id>pub</id>
+			<properties>
+				<properties.file>pub.properties</properties.file>
+			</properties>
+		</profile>
+	</profiles>
 
 	<dependencies>
 		<dependency>
@@ -35,13 +54,24 @@
 	</dependencies>
 
 	<build>
+		<defaultGoal>package</defaultGoal>
+		<filters>
+			<filter>${properties.file}</filter>
+		</filters>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+				<filtering>true</filtering>
+			</resource>
+			<!-- <resource> <directory>src/test/resources</directory> <filtering>true</filtering> </resource> -->
+		</resources>
 		<plugins>
 			<plugin>
 				<artifactId>maven-assembly-plugin</artifactId>
 				<configuration>
 					<archive>
 						<manifest>
-							<mainClass>alitool.PhotobankMigration</mainClass>
+							<mainClass>com.leoyoung.tool.HashMigration</mainClass>
 						</manifest>
 					</archive>
 					<descriptorRefs>

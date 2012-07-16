@@ -1,6 +1,11 @@
 == package
 mvn clean;
 mvn package assembly:assembly;
+mvn package assembly:assembly -P pub;
 
 == run
-java -jar target/PhotobankMigration-1.0-SNAPSHOT-jar-with-dependencies.jar photobank_db_dump 10
+dev
+java -jar target/HashMigration-1.0-jar-with-dependencies.jar photobank_db_dump 10
+
+pub
+java -jar HashMigration-1.0-jar-with-dependencies.jar photobank_db_dump 500

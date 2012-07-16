@@ -1,4 +1,4 @@
-package alitool;
+package com.leoyoung.tool;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -7,6 +7,8 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.Random;
+
+import com.leoyoung.tool.MigrationUtils;
 
 public class PhotobankTestData {
 
