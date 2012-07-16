@@ -1,5 +1,9 @@
 package com.leoyoung.tool;
 
+import java.io.File;
+import java.io.IOException;
+
+import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -15,7 +19,7 @@ public class HashMigrationTest {
 	@Before
 	public void before() {
 		try {
-			PhotobankTestData.create(DUMP_FILE, 50);
+			PhotobankTestData.create(DUMP_FILE, 20);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -23,7 +27,14 @@ public class HashMigrationTest {
 
 	@After
 	public void after() {
-
+		File oldrepo = new File("oldrepo");
+		File newrepo = new File("newrepo");
+		try {
+			FileUtils.deleteDirectory(oldrepo);
+			FileUtils.deleteDirectory(newrepo);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Test

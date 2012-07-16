@@ -19,6 +19,9 @@ public class PhotobankTestData {
 			ids[i++] = random.nextInt(1000000000);
 		}
 		File testDumpFile = new File(filename);
+		if (!testDumpFile.getParentFile().exists()) {
+			testDumpFile.getParentFile().mkdirs();
+		}
 		BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(testDumpFile));
 		for (int id : ids) {
 			bufferedWriter.write(id + "|" + random.nextInt(1000) + ".data\n");

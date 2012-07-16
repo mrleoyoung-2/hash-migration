@@ -1,11 +1,13 @@
-== package
-mvn clean;
-mvn package assembly:assembly;
+a simple migration tool based on hash code of the relative path
+
+== dev
+mvn clean; mvn eclipse:clean;
+mvn eclipse:eclipse -DdownloadJavaDocs=true -DdownloadSources=true;
+
+== test (using dev profile)
+mvn test
+or run junit test in eclipse
+
+== run (using pub profile)
 mvn package assembly:assembly -P pub;
-
-== run
-dev
-java -jar target/HashMigration-1.0-jar-with-dependencies.jar photobank_db_dump 10
-
-pub
-java -jar HashMigration-1.0-jar-with-dependencies.jar photobank_db_dump 500
+java -jar HashMigration-1.0-jar-with-dependencies.jar db_dump_file 500
