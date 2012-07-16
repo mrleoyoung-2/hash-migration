@@ -8,8 +8,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.Random;
 
-import com.leoyoung.tool.MigrationUtils;
-
 public class PhotobankTestData {
 
 	public static void create(String filename, int size) throws Exception {

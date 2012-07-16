@@ -10,7 +10,7 @@ import org.junit.Test;
  */
 public class HashMigrationTest {
 
-	private static final String DUMP_FILE = "photobank_db_dump";
+	private static final String DUMP_FILE = "oldrepo/photobank_db_dump";
 
 	@Before
 	public void before() {
@@ -44,6 +44,6 @@ public class HashMigrationTest {
 	@Test
 	public void testMigrationTest() {
 		String[] args = new String[] { DUMP_FILE, "10", "-t" };
-		HashMigration.main(null);
+		HashMigration.main(args);
 	}
 }
