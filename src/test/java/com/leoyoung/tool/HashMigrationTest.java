@@ -19,7 +19,7 @@ public class HashMigrationTest {
 	@Before
 	public void before() {
 		try {
-			PhotobankTestData.create(DUMP_FILE, 20);
+			PhotobankTestData.create(DUMP_FILE, 100);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -27,8 +27,8 @@ public class HashMigrationTest {
 
 	@After
 	public void after() {
-		File oldrepo = new File("oldrepo");
-		File newrepo = new File("newrepo");
+		File oldrepo = new File(MigrationSettings.getOldRepoAbsoluteDir());
+		File newrepo = new File(MigrationSettings.getNewRepoAbsoluteDir());
 		try {
 			FileUtils.deleteDirectory(oldrepo);
 			FileUtils.deleteDirectory(newrepo);
@@ -40,10 +40,15 @@ public class HashMigrationTest {
 	@Test
 	public void testPhotobankRelativePath() {
 		String line = "101584057|1227694640551jpg.jpg";
-		Assert.assertEquals("photobank/057/584/101/1227694640551jpg.jpg", MigrationUtils.getRelativePathInfo(line));
+		Assert.assertEquals("photobank/057/584/101/1227694640551jpg.jpg", MigrationUtils.getPhotobankRelativePath(line));
 
 		String line2 = "67374|cnjinchangcheng_9.jpg";
-		Assert.assertEquals("photobank/374/067/000/cnjinchangcheng_9.jpg", MigrationUtils.getRelativePathInfo(line2));
+		Assert.assertEquals("photobank/374/067/000/cnjinchangcheng_9.jpg",
+				MigrationUtils.getPhotobankRelativePath(line2));
+
+		String line3 = "101584059|1227694640607jpg.jpg";
+		Assert.assertEquals("photobank/059/584/101/1227694640607jpg.jpg",
+				MigrationUtils.getPhotobankRelativePath(line3));
 	}
 
 	/**
@@ -51,8 +56,8 @@ public class HashMigrationTest {
 	 */
 	@Test
 	public void testMigrationFull() {
-		String[] args = new String[] { DUMP_FILE, "10" };
-		HashMigration.main(args);
+		String[] args = new String[] { DUMP_FILE, "20" };
+		HashMigration.main(args); // TODO chech migration data
 	}
 
 	/**
@@ -60,7 +65,7 @@ public class HashMigrationTest {
 	 */
 	@Test
 	public void testMigrationTest() {
-		String[] args = new String[] { DUMP_FILE, "10", "-t" };
+		String[] args = new String[] { DUMP_FILE, "20", "-t" };
 		HashMigration.main(args);
 	}
 }

@@ -10,6 +10,15 @@ import java.util.Random;
 
 public class PhotobankTestData {
 
+	/**
+	 * create test dump file
+	 * 
+	 * @param filename
+	 *            test dump file name
+	 * @param size
+	 *            the file amount
+	 * @throws Exception
+	 */
 	public static void create(String filename, int size) throws Exception {
 		// make dump file
 		int[] ids = new int[size];
@@ -31,7 +40,7 @@ public class PhotobankTestData {
 		BufferedReader in = new BufferedReader(new FileReader(testDumpFile));
 		String line;
 		while ((line = in.readLine()) != null) {
-			String relativePath = MigrationUtils.getRelativePathInfo(line);
+			String relativePath = MigrationUtils.getPhotobankRelativePath(line);
 			File testfile = new File("oldrepo/" + relativePath);
 			File parentFile = testfile.getParentFile();
 			if (!parentFile.exists()) {
@@ -42,13 +51,5 @@ public class PhotobankTestData {
 			fileOutputStream.close();
 		}
 		in.close();
-	}
-
-	public static void main(String[] args) {
-		try {
-			create("photobank_db_dump", 100);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
 	}
 }

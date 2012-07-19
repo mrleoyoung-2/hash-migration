@@ -7,8 +7,9 @@
 
 ### test (using dev profile)
 	mvn test
-or run junit test in eclipse
+	or run junit test in eclipse
 
 ### run (using pub profile)
 	mvn package assembly:assembly -P pub;
-	eg: java -jar HashMigration-1.0-jar-with-dependencies.jar db_dump_file 500
+	eg1: java -jar HashMigration-1.0-jar-with-dependencies.jar db_dump_file 50
+	eg2: java -jar HashMigration-1.0-jar-with-dependencies.jar db_dump_file 50 -t

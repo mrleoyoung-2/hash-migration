@@ -27,9 +27,11 @@ public class MigrationUtils {
 	 *            one line of dump file
 	 * @return file path without first slash, if illegal,return null
 	 */
-	static String getRelativePathInfo(String line) {
-		if (line == null)
+	static String getPhotobankRelativePath(String line) {
+		line = StringUtils.trimToNull(line);
+		if (StringUtils.isEmpty(line)) {
 			return null;
+		}
 		String[] pair = StringUtils.split(line, '|');
 		if (pair.length != 2)
 			return null;

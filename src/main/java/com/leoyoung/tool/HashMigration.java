@@ -3,9 +3,11 @@ package com.leoyoung.tool;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.LinkedList;
 import java.util.List;
@@ -48,7 +50,7 @@ public class HashMigration {
 		final ExecutorService futureExecutorService = Executors.newFixedThreadPool(size);
 
 		if (mainLog.isDebugEnabled()) {
-			Thread monitorQueue = new Thread(new Runnable() {
+			Thread queueMonitorThread = new Thread(new Runnable() {
 
 				@Override
 				public void run() {
@@ -57,13 +59,13 @@ public class HashMigration {
 							Thread.sleep(1000);
 							mainLog.debug("copyFinishedBlockingQueue size: " + copyFinishedBlockingQueue.size());
 						} catch (InterruptedException e) {
-							e.printStackTrace();
+							mainLog.error(e);
 						}
 					}
 				}
 			});
-			monitorQueue.setDaemon(true);
-			monitorQueue.start();
+			queueMonitorThread.setDaemon(true);
+			queueMonitorThread.start();
 		}
 
 		for (String filename : filenameList) {
@@ -77,23 +79,22 @@ public class HashMigration {
 				String line;
 				int queueSizeHolder = size;
 				while ((line = in.readLine()) != null) {
-					mainLog.debug("initThreadCount: " + queueSizeHolder);
+					if (mainLog.isDebugEnabled()) {
+						mainLog.debug("initThreadCount: " + queueSizeHolder);
+					}
+
 					if (queueSizeHolder > 0) {
 						queueSizeHolder--;
 					} else {
 						copyFinishedBlockingQueue.take();
 					}
-					File[] files = needMigration(line);
+					File[] files = findMigrationFiles(line);
 					if (files != null) {
 						Future<?> future = copyExecutorService.submit(CopyTaskFactory.getCopyTask(files[0], files[1],
 								parameterInfo));
 						futureExecutorService.execute(new CopyFutureTask(future, copyFinishedBlockingQueue));
 					} else {
 						queueSizeHolder++;
-					}
-					// make the test count equals the queueSizeHolder
-					if (parameterInfo.isTest() && (queueSizeHolder <= 0)) {
-						break;
 					}
 				}
 				copyExecutorService.shutdown();
@@ -106,22 +107,27 @@ public class HashMigration {
 		mainLog.info("HashMigration job copy done.");
 	}
 
-	private static File[] needMigration(String line) {
-		String relativePath = MigrationUtils.getRelativePathInfo(line);
-		// if need migration & if old file exist & if new file not exist, copy file
+	/**
+	 * find files need migration
+	 * 
+	 * @param line
+	 *            the dump file line
+	 * @return the file pair that need migration. if line is illegal, or hash code means do not need, then return null.
+	 */
+	private static File[] findMigrationFiles(String line) {
+		String relativePath = MigrationUtils.getPhotobankRelativePath(line);
+		if (relativePath == null) {
+			return null;
+		}
 		if (!MigrationUtils.isHashNeedMigration(relativePath)) {
-			mainLog.debug("relativePath: " + relativePath + ", NOT migration.");
+			if (mainLog.isDebugEnabled())
+				mainLog.debug("relativePath: " + relativePath + ", NOT migration.");
 			return null;
 		}
 		File oldFile = new File(OLD_REPO_PREFIX + relativePath);
 		File newFile = new File(NEW_REPO_PREFIX + relativePath);
-		if (!oldFile.exists() || oldFile.isDirectory() || newFile.exists()) {
-			mainLog.warn("relativePath: " + relativePath + ", NEED migration, BUT: !oldFile.exists(): "
-					+ !oldFile.exists() + ", oldFile.isDirectory(): " + oldFile.isDirectory() + ", newFile.exists(): "
-					+ newFile.exists());
-			return null;
-		}
-		mainLog.debug("need migration file: " + oldFile.getAbsolutePath());
+		if (mainLog.isDebugEnabled())
+			mainLog.debug("need migration file: " + oldFile.getAbsolutePath());
 		return new File[] { oldFile, newFile };
 	}
 
@@ -145,6 +151,11 @@ public class HashMigration {
 	}
 }
 
+/**
+ * the parameter infomation from the command line
+ * 
+ * @author Leo Young Jul 19, 2012
+ */
 class ParameterInfo {
 	private List<String> dumpFiles = new LinkedList<String>();
 	private int copyThreads;
@@ -196,34 +207,53 @@ class CopyTask implements Runnable {
 
 	@Override
 	public void run() {
-		HashMigration.mainLog.debug("CopyTask start running for: " + newFile.getAbsolutePath());
-
-		if (!newFile.getParentFile().exists()) {
-			newFile.getParentFile().mkdirs();
+		if (HashMigration.mainLog.isDebugEnabled()) {
+			HashMigration.mainLog.debug("CopyTask start running for: " + newFile.getAbsolutePath());
 		}
 
-		FileChannel in = null, out = null;
+		FileInputStream fileInputStream = null;
+		FileOutputStream fileOutputStream = null;
 		try {
-			in = new FileInputStream(oldFile).getChannel();
-			out = new FileOutputStream(newFile).getChannel();
-			in.transferTo(0, in.size(), out);
+			fileInputStream = new FileInputStream(oldFile);
+			fileOutputStream = new FileOutputStream(newFile);
+			// create dir directly
+			newFile.getParentFile().mkdirs();
+			FileChannel in = fileInputStream.getChannel();
+			FileChannel out = fileOutputStream.getChannel();
+			ByteBuffer buffer = ByteBuffer.allocate(50 * 1024);
+			while (in.read(buffer) != -1) {
+				buffer.flip();
+				out.write(buffer);
+				buffer.clear();
+			}
+			// log the copyed file path
+			HashMigration.migrationLog.info(oldFile.getAbsolutePath());
+		} catch (FileNotFoundException fnfe) {
+			return;
 		} catch (Exception e) {
 			HashMigration.mainLog.error(e);
 		} finally {
 			try {
-				if (out != null)
-					out.close();
-				if (in != null)
-					in.close();
+				if (fileOutputStream != null)
+					fileOutputStream.close();
+				if (fileInputStream != null)
+					fileInputStream.close();
 			} catch (IOException e) {
 				HashMigration.mainLog.error(e);
 			}
 		}
-		// log original file path to migration.log, for future delete
-		HashMigration.migrationLog.info(oldFile.getAbsolutePath());
 	}
 }
 
+/**
+ * <pre>
+ * readonly test task
+ * 
+ * read the data from the input stream, but not write to the destination file
+ * </pre>
+ * 
+ * @author Leo Young Jul 19, 2012
+ */
 class CopyTaskTest extends CopyTask {
 
 	public CopyTaskTest(File oldFile, File newFile) {
@@ -232,11 +262,42 @@ class CopyTaskTest extends CopyTask {
 
 	@Override
 	public void run() {
-		HashMigration.mainLog.info("CopyTaskTest start running for: oldFile(" + oldFile.getAbsolutePath()
-				+ "), newFile(" + newFile.getAbsolutePath() + ")");
+		if (HashMigration.mainLog.isDebugEnabled()) {
+			HashMigration.mainLog.debug("CopyTaskTest start running for: " + newFile.getAbsolutePath());
+		}
+
+		FileInputStream fileInputStream = null;
+		try {
+			fileInputStream = new FileInputStream(oldFile);
+			FileChannel in = fileInputStream.getChannel();
+			ByteBuffer buffer = ByteBuffer.allocate(50 * 1024);
+			while (in.read(buffer) != -1) {
+				buffer.flip();
+				// do nothing
+				buffer.clear();
+			}
+			// log the copyed file path, FAKE!
+			HashMigration.migrationLog.info("FAKE: " + oldFile.getAbsolutePath());
+		} catch (FileNotFoundException fnfe) {
+			return;
+		} catch (Exception e) {
+			HashMigration.mainLog.error(e);
+		} finally {
+			try {
+				if (fileInputStream != null)
+					fileInputStream.close();
+			} catch (IOException e) {
+				HashMigration.mainLog.error(e);
+			}
+		}
 	}
 }
 
+/**
+ * the task that monitor the copy task
+ * 
+ * @author Leo Young Jul 19, 2012
+ */
 class CopyFutureTask implements Runnable {
 	private Future<?> future;
 	private BlockingQueue<Integer> copyFinishedBlockingQueue;
@@ -260,6 +321,11 @@ class CopyFutureTask implements Runnable {
 	}
 }
 
+/**
+ * simple factory to swith the copy task and test copy task
+ * 
+ * @author Leo Young Jul 19, 2012
+ */
 class CopyTaskFactory {
 	public static CopyTask getCopyTask(File oldFile, File newFile, ParameterInfo parameterInfo) {
 		if (parameterInfo.isTest()) {
