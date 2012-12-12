@@ -1,6 +1,9 @@
 ## Hash Migration
 > a simple migration tool based on hash code of the relative path
 
+----
+edit by 3
+----
 ### dev
 	mvn clean; mvn eclipse:clean;
 	mvn eclipse:eclipse -DdownloadJavaDocs=true -DdownloadSources=true;
