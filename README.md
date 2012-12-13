@@ -14,4 +14,3 @@
 	eg1: java -jar HashMigration-1.0-jar-with-dependencies.jar db_dump_file 50
 	eg2: java -jar HashMigration-1.0-jar-with-dependencies.jar db_dump_file 50 -t
 ----
-edit by 2
